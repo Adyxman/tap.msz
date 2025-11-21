@@ -1,0 +1,419 @@
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffd900">
+
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Munkaidő - Mobil</title>
+
+    <style>
+        :root{
+            --bg:#1e1e1e;
+            --panel:#141414;
+            --accent: #ffd900;
+        }
+        *{box-sizing:border-box}
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            font-family: 'Segoe UI',sans-serif;
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+        }
+
+        .keret {
+            width: 95vw;
+            max-width: 900px;
+            background-color: var(--panel);
+            border-radius: 16px;
+            margin: 20px auto;
+            padding: 18px;
+            box-shadow: 0 6px 30px rgba(0,0,0,0.7);
+        }
+
+        #szerkesztesTopBar {
+            position: fixed;
+            top: 0; left: 0; right:0;
+            background: rgba(255,217,0,0.25);
+            backdrop-filter: blur(4px);
+            padding: 12px 10px;
+            font-size: 16px;
+            color: #111;
+            text-align: center;
+            display: none;
+            z-index: 9999;
+        }
+
+        label{display:block; margin-bottom:6px; color:#fff}
+        input, select, button{font-size:16px}
+
+        .doboz{
+            background: rgba(255,255,255,0.03);
+            padding:12px;
+            border-radius:12px;
+            color:#fff;
+            margin-bottom:14px;
+        }
+
+        .inline{display:flex; gap:10px; align-items:center}
+        .inline .grow{flex:1}
+
+        #lakat{
+            font-size:22px; cursor:pointer; user-select:none; transition:transform .15s; padding:6px 8px; border-radius:8px; background:rgba(255,255,255,0.02);
+        }
+        #lakat:active{transform:scale(.98)}
+
+        #kalkomb{
+            background:#0f4d0f; color:white; padding:12px; border-radius:12px; text-align:center; cursor:pointer; box-shadow:0 6px 18px rgba(0,80,0,0.25);
+        }
+        #kalkomb[disabled]{opacity:.45; cursor:not-allowed}
+
+        #statisztika{display:none;}
+        #statisztika h3{margin-top:0}
+
+        /* Mentések gomb és panel */
+        #mentesekGomb{
+            position:fixed; 
+            top:16px; 
+            right:16px; 
+            background:#004aad; 
+            color:white; 
+            padding:10px 12px; 
+            border-radius:10px; 
+            z-index:9998
+        }
+
+        /* ÚJ: nem átlátszó háttér + fehér szöveg */
+        #mentesPanel{
+            display:none;
+            position:fixed;
+            right:8px;
+            top:56px;
+            width:90vw;
+            max-width:420px;
+            max-height:70vh;
+            overflow:auto;
+            background:#1a1a1a;     /* TELJESEN NEM ÁTLÁTSZÓ */
+            color:#fff;             /* FEHÉR SZÖVEG */
+            padding:12px;
+            border-radius:12px;
+            z-index:9998;
+        }
+
+        .mentes-item{
+            padding:10px;
+            margin-bottom:10px;
+            background:#2b2b2b;    /* enyhén eltérő árnyalat */
+            border-radius:8px;
+            color:white;
+        }
+
+        .mentes-item div{
+            color:white !important;
+        }
+
+        .mentes-actions button{
+            margin-right:8px;
+            padding:5px 10px;
+            border-radius:6px;
+            border:none;
+            background:#ffd900;
+            color:#000;
+            cursor:pointer;
+        }
+
+        @media (max-width:420px){
+            .keret{padding:14px}
+            input,select{font-size:15px}
+            #szerkesztesTopBar{font-size:14px}
+            #mentesPanel{right:6px; left:6px}
+        }
+    </style>
+</head>
+<body>
+
+    <div id="szerkesztesTopBar"></div>
+
+    <div class="keret">
+
+        <div class="doboz">
+            <label for="datum"><strong>Dátum</strong></label>
+            <div class="inline">
+                <input type="date" id="datum" class="grow">
+                <div id="nap" style="color:#ddd; padding-left:8px; min-width:78px"></div>
+            </div>
+        </div>
+
+        <div class="doboz">
+            <label for="oraber"><strong>Órabér</strong></label>
+            <div class="inline">
+                <select id="oraber" class="grow">
+                    <option value="1000">1000</option>
+                    <option value="1250">1250</option>
+                    <option value="1500">1500</option>
+                    <option value="1750">1750</option>
+                    <option value="2000">2000</option>
+                    <option value="2250">2250</option>
+                    <option value="2500">2500</option>
+                    <option value="egyedi">Egyedi</option>
+                </select>
+
+                <input 
+                    type="number" 
+                    id="egyediOraber" 
+                    placeholder="Add meg az egyedi összeget" 
+                    style="display:none; width:120px; padding:6px; border-radius:8px;"
+                >
+
+                <div id="lakat" title="Órabér zárolása">🔓</div>
+            </div>
+        </div>
+
+        <div class="doboz">
+            <label><strong>Idő</strong></label>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1">
+                    <div style="font-size:13px; color:#ddd;">Mettől</div>
+                    <input type="time" id="mettol" style="width:100%">
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:13px; color:#ddd;">Meddig</div>
+                    <input type="time" id="meddig" style="width:100%">
+                </div>
+            </div>
+        </div>
+
+        <div id="kalkomb" role="button" aria-pressed="false" tabindex="0" disabled>Kalkulálás</div>
+
+        <div id="statisztika" class="doboz">
+            <h3>📊 Statisztika</h3>
+            <div id="statdatum"></div>
+            <div id="statido"></div>
+            <div id="statpenz"></div>
+            <div style="margin-top:10px; text-align:right;">
+                <button id="mentesGomb" style="background:#2b7a2b; color:white; padding:8px 12px; border-radius:8px">Mentés</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="mentesekGomb">Mentések</div>
+    <div id="mentesPanel"></div>
+
+<script>
+// Elems
+const datumInput = document.getElementById('datum');
+const napSpan = document.getElementById('nap');
+const oraberSelect = document.getElementById('oraber');
+const egyediInput = document.getElementById('egyediOraber');
+const lakat = document.getElementById('lakat');
+const mettol = document.getElementById('mettol');
+const meddig = document.getElementById('meddig');
+const kalkGomb = document.getElementById('kalkomb');
+const statBox = document.getElementById('statisztika');
+const statdatum = document.getElementById('statdatum');
+const statido = document.getElementById('statido');
+const statpenz = document.getElementById('statpenz');
+const mentesGomb = document.getElementById('mentesGomb');
+const mentesekGomb = document.getElementById('mentesekGomb');
+const mentesPanel = document.getElementById('mentesPanel');
+const szerkTop = document.getElementById('szerkesztesTopBar');
+
+let szerkesztesIndex = null;
+
+// Egyedi órabér megjelenítés
+oraberSelect.addEventListener("change", () => {
+    if (oraberSelect.value === "egyedi") {
+        egyediInput.style.display = "block";
+    } else {
+        egyediInput.style.display = "none";
+        egyediInput.value = "";
+    }
+    ellenorzes();
+});
+
+// Load saved órabér
+const savedOraber = localStorage.getItem('oraber');
+const savedLocked = localStorage.getItem('locked');
+if(savedOraber) oraberSelect.value = savedOraber;
+if(savedLocked === 'true'){
+    lakat.textContent = '🔒';
+    oraberSelect.disabled = true;
+} else {
+    lakat.textContent = '🔓';
+    oraberSelect.disabled = false;
+}
+
+// Load saves
+let mentesLista = JSON.parse(localStorage.getItem('mentesLista') || '[]');
+
+function frissitMentesPanel(){
+    mentesPanel.innerHTML = '<h3 style="color:white">Mentések</h3><hr style="opacity:.3">';
+    if(mentesLista.length===0){
+        mentesPanel.innerHTML += '<p style="color:white">Nincs mentett adat.</p>';
+        return;
+    }
+    mentesLista.forEach((m, idx)=>{
+        const div = document.createElement('div');
+        div.className = 'mentes-item';
+        div.innerHTML = `
+            <div><strong>${m.datum}</strong></div>
+            <div style="font-size:14px;">${m.ido}</div>
+            <div style="font-size:14px;">${m.penz} Ft</div>
+            <div class="mentes-actions">
+                <button data-idx="${idx}" class="edit">✎ Szerkeszt</button>
+                <button data-idx="${idx}" class="del">✖ Töröl</button>
+            </div>`;
+        mentesPanel.appendChild(div);
+    });
+
+    // attach handlers
+    mentesPanel.querySelectorAll('.edit').forEach(btn=>btn.addEventListener('click', (e)=>{
+        const i = Number(e.currentTarget.dataset.idx);
+        szerkeszt(i);
+        mentesPanel.style.display = 'none';
+    }));
+    mentesPanel.querySelectorAll('.del').forEach(btn=>btn.addEventListener('click', (e)=>{
+        const i = Number(e.currentTarget.dataset.idx);
+        torol(i);
+    }));
+}
+frissitMentesPanel();
+
+// Date -> weekday
+datumInput.addEventListener('change', ()=>{
+    const d = new Date(datumInput.value);
+    if(!isNaN(d)){
+        const napok=['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+        napSpan.textContent = ' - ' + napok[d.getDay()];
+    }
+    ellenorzes();
+});
+
+// enable calc when inputs present
+function ellenorzes(){
+    if(datumInput.value && mettol.value && meddig.value){
+        kalkGomb.removeAttribute('disabled');
+    } else {
+        kalkGomb.setAttribute('disabled','');
+    }
+}
+mettol.addEventListener('change', ellenorzes);
+meddig.addEventListener('change', ellenorzes);
+
+// lock toggle
+lakat.addEventListener('click', ()=>{
+    if(oraberSelect.disabled){
+        oraberSelect.disabled = false;
+        lakat.textContent = '🔓';
+        localStorage.setItem('locked','false');
+    } else {
+        oraberSelect.disabled = true;
+        lakat.textContent = '🔒';
+        localStorage.setItem('locked','true');
+    }
+    localStorage.setItem('oraber', oraberSelect.value);
+});
+
+oraberSelect.addEventListener('change', ()=>{
+    localStorage.setItem('oraber', oraberSelect.value);
+});
+
+// Kalkulálás
+function calcAndShow(){
+    const sh = mettol.value.split(':').map(Number)[0]||0;
+    const sm = mettol.value.split(':').map(Number)[1]||0;
+    const eh = meddig.value.split(':').map(Number)[0]||0;
+    const em = meddig.value.split(':').map(Number)[1]||0;
+
+    let start = sh*60 + sm;
+    let end = eh*60 + em;
+    if(end <= start) end += 24*60;
+
+    const diff = end - start;
+
+    let oraberVegso =
+        (oraberSelect.value === "egyedi" && egyediInput.value)
+        ? Number(egyediInput.value)
+        : Number(oraberSelect.value);
+
+    const penz = (diff/60) * oraberVegso;
+
+    const orak = Math.floor(diff/60);
+    const percek = diff % 60;
+
+    statdatum.textContent = 'Dátum: ' + datumInput.value;
+    statido.textContent = `Dolgozott idő: ${orak} óra ${percek} perc`;
+    statpenz.textContent = `Keresett összeg: ${Math.round(penz)} Ft`;
+
+    statBox.style.display = 'block';
+}
+
+kalkGomb.addEventListener('click', ()=>{
+    if(kalkGomb.hasAttribute('disabled')) return;
+    calcAndShow();
+});
+
+// Mentés
+mentesGomb.addEventListener('click', ()=>{
+    if(statdatum.textContent==='') return alert('Nincs mit menteni - előbb kalkulálj.');
+    const datum = statdatum.textContent.replace('Dátum: ','');
+    const ido = statido.textContent;
+    const penz = statpenz.textContent.replace('Keresett összeg: ','').replace(' Ft','');
+
+    if(szerkesztesIndex !== null){
+        mentesLista[szerkesztesIndex] = {datum, ido, penz};
+        szerkesztesIndex = null;
+        szerkTop.style.display = 'none';
+    } else {
+        mentesLista.push({datum, ido, penz});
+    }
+    localStorage.setItem('mentesLista', JSON.stringify(mentesLista));
+    frissitMentesPanel();
+    alert('Mentve!');
+});
+
+// Mentések panel
+mentesekGomb.addEventListener('click', ()=>{
+    mentesPanel.style.display = (mentesPanel.style.display==='block') ? 'none' : 'block';
+});
+
+// szerkeszt
+function szerkeszt(index){
+    const m = mentesLista[index];
+    let d = m.datum.replace('Dátum: ','');
+    datumInput.value = d;
+
+    statdatum.textContent = 'Dátum: ' + d;
+    statido.textContent = m.ido;
+    statpenz.textContent = m.penz + ' Ft';
+
+    statBox.style.display = 'block';
+    szerkesztesIndex = index;
+    szerkTop.textContent = 'Szerkesztés alatt: ' + d;
+    szerkTop.style.display = 'block';
+}
+window.szerkeszt = szerkeszt;
+
+// törlés
+function torol(index){
+    const biztos = confirm('Biztosan törölni szeretnéd?');
+    if(!biztos) return;
+    mentesLista.splice(index,1);
+    localStorage.setItem('mentesLista', JSON.stringify(mentesLista));
+    frissitMentesPanel();
+}
+window.torol = torol;
+
+// initial check
+ellenorzes();
+</script>
+
+</body>
+</html>
